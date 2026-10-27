@@ -1,0 +1,34 @@
+{
+  "name": "farmvision-ai-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.13.0",
+  "engines": {
+    "node": ">=20.9"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "dotenv": "18.0.8",
+    "jose": "6.2.12",
+    "nodemailer": "^6.9.7",
+    "pg": "8.23.1",
+    "server-only": "^0.0.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pg": "8.23.1",
+    "prisma": "7.10.1",
+    "typescript": "^5.0.0",
+    "vitest": "4.1.12"
+  }
+}

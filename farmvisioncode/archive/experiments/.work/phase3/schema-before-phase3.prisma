@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FarmVisionRole {
+  FARMER
+  COOPERATIVE
+  RESEARCHER
+  GOVERNMENT_ANALYST
+  ADMINISTRATOR
+}
+
+enum DeviceSource {
+  HARDWARE
+  SIMULATOR
+}
+
+model User {
+  id        String          @id @default(uuid()) @db.Uuid
+  openId    String          @unique
+  name      String?
+  email     String?
+  createdAt DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime        @updatedAt @db.Timestamptz(6)
+  roles     UserRole[]
+  farms     Farm[]
+}
+
+model UserRole {
+  userId     String          @db.Uuid
+  role       FarmVisionRole
+  assignedAt DateTime        @default(now()) @db.Timestamptz(6)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@index([role])
+}
+
+model Farm {
+  id            String   @id @default(uuid()) @db.Uuid
+  ownerId       String   @db.Uuid
+  name          String   @db.VarChar(160)
+  locationLabel String?  @db.VarChar(200)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  devices       Device[]
+
+  @@index([ownerId, createdAt])
+}
+
+model Device {
+  id             String       @id @default(uuid()) @db.Uuid
+  farmId         String       @db.Uuid
+  publicId       String       @unique @db.VarChar(64)
+  name           String       @db.VarChar(120)
+  credentialHash String       @unique @db.Char(64)
+  source         DeviceSource
+  isEnabled      Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  lastSeenAt     DateTime?    @db.Timestamptz(6)
+  farm           Farm         @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  readings       SensorReading[]
+  latestState    DeviceState?
+
+  @@index([farmId, createdAt])
+}
+
+model SensorReading {
+  id                String       @id @default(uuid()) @db.Uuid
+  deviceId          String       @db.Uuid
+  messageId         String       @db.VarChar(128)
+  observedAt        DateTime     @db.Timestamptz(6)
+  receivedAt        DateTime     @default(now()) @db.Timestamptz(6)
+  source            DeviceSource
+  temperatureC      Float?
+  humidityPercent   Float?
+  feedLevelPercent  Float?
+  waterLevelPercent Float?
+  feedWeightGrams   Float?
+  device            Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, messageId])
+  @@index([deviceId, observedAt])
+}
+
+model DeviceState {
+  deviceId          String       @id @db.Uuid
+  observedAt        DateTime     @db.Timestamptz(6)
+  source            DeviceSource
+  temperatureC      Float?
+  humidityPercent   Float?
+  feedLevelPercent  Float?
+  waterLevelPercent Float?
+  feedWeightGrams   Float?
+  updatedAt         DateTime     @updatedAt @db.Timestamptz(6)
+  device            Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}

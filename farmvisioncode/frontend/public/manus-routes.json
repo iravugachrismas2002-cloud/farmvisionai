@@ -1,0 +1,40 @@
+{
+  "routes": [
+    {
+      "path": "/",
+      "title": "FarmVision AI"
+    },
+    {
+      "path": "/login",
+      "title": "Sign in · FarmVision AI"
+    },
+    {
+      "path": "/farms",
+      "title": "Your farms · FarmVision AI"
+    },
+    {
+      "path": "/devices",
+      "title": "Devices and telemetry · FarmVision AI"
+    },
+    {
+      "path": "/alerts",
+      "title": "Alert center · FarmVision AI"
+    },
+    {
+      "path": "/recommendations",
+      "title": "Recommendations · FarmVision AI"
+    },
+    {
+      "path": "/analytics",
+      "title": "Historical analytics · FarmVision AI"
+    },
+    {
+      "path": "/digital-twin",
+      "title": "Digital Twin · FarmVision AI"
+    },
+    {
+      "path": "/intelligence",
+      "title": "Resource intelligence · FarmVision AI"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "farmvision-ai",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.13.0",
+  "engines": {
+    "node": ">=20.9"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspace=frontend && npm run db:generate --workspace=backend",
+    "start": "npm run start --workspace=frontend",
+    "lint": "npm run lint --workspace=frontend",
+    "typecheck": "npm run typecheck --workspace=frontend && npm run typecheck --workspace=backend",
+    "test": "npm run test --workspace=backend",
+    "db:generate": "npm run db:generate --workspace=backend",
+    "db:migrate": "npm run db:migrate --workspace=backend",
+    "verify:imports": "node scripts/verify-relative-imports.mjs"
+  },
+  "dependencies": {
+    "nodemailer": "^10.2.1"
+  }
+}

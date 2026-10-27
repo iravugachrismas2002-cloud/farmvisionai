@@ -1,0 +1,648 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum FarmVisionRole {
+  AGRONOMIST
+  FARMER
+  ENTREPRENEUR
+  COOPERATIVE
+  RESEARCHER
+  GOVERNMENT_ANALYST
+  ADMINISTRATOR
+  VETERINARIAN
+}
+
+enum DeviceSource {
+  HARDWARE
+  SIMULATOR
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertType {
+  FEED_LOW
+  WATER_LOW
+  HIGH_TEMPERATURE
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum AlertEventType {
+  TRIGGERED
+  ACKNOWLEDGED
+  RESOLVED
+  ESCALATED
+  SEVERITY_CHANGED
+}
+
+enum RecommendationType {
+  FEED_CHECK
+  WATER_CHECK
+  HEAT_RESPONSE
+}
+
+enum RecommendationStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum FarmAdvisorAccessStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  REVOKED
+}
+
+enum FarmAdvisorAccessEventType {
+  REQUESTED
+  APPROVED
+  DECLINED
+  REVOKED
+}
+
+enum RecommendationReviewStatus {
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+  NOT_RECOMMENDED
+  ACCEPTED_BY_FARMER
+  DECLINED_BY_FARMER
+}
+
+enum RecommendationReviewEventType {
+  SUBMITTED
+  APPROVED
+  CHANGES_REQUESTED
+  NOT_RECOMMENDED
+  ACCEPTED_BY_FARMER
+  DECLINED_BY_FARMER
+}
+
+enum SupplierProfileStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum MarketplaceProductCategory {
+  FEED
+  VETERINARY_MEDICINE
+  SEEDS
+  FERTILIZER
+  EQUIPMENT
+}
+
+enum MarketplaceProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model User {
+  id                             String                      @id @default(uuid()) @db.Uuid
+  openId                         String?                     @unique
+  name                           String?
+  email                          String?                     @unique
+  passwordHash                   String?
+  createdAt                      DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt                      DateTime                    @updatedAt @db.Timestamptz(6)
+  emailVerified                  DateTime?                   @db.Timestamptz(6)
+  verificationToken              String?                     @unique
+  verificationExpiresAt          DateTime?
+  passwordResetToken             String?                     @unique
+  passwordResetExpiresAt         DateTime?                   @db.Timestamptz(6)
+  approvalStatus                 ApprovalStatus              @default(PENDING)
+  roles                          UserRole[]
+  farms                          Farm[]
+  acknowledgedAlerts             Alert[]                     @relation("AlertAcknowledgedBy")
+  alertEvents                    AlertEvent[]                @relation("AlertEventActor")
+  acknowledgedRecommendations    Recommendation[]            @relation("RecommendationAcknowledgedBy")
+  advisorAccesses                FarmAdvisorAccess[]         @relation("FarmAdvisorAccessAgronomist")
+  farmAccessEvents               FarmAdvisorAccessEvent[]    @relation("FarmAdvisorAccessEventActor")
+  authoredAdvisoryNotes          AdvisoryNote[]              @relation("AdvisoryNoteAuthor")
+  submittedRecommendationReviews RecommendationReview[]      @relation("RecommendationReviewFarmer")
+  assignedRecommendationReviews  RecommendationReview[]      @relation("RecommendationReviewAgronomist")
+  recommendationReviewEvents     RecommendationReviewEvent[] @relation("RecommendationReviewEventActor")
+  supplierProfile                SupplierProfile?
+  veterinaryProvider             VeterinaryProvider?
+  farmVeterinarianAccesses       FarmVeterinarianAccess[]    @relation("FarmVeterinarianAccessVeterinarian")
+  farmVeterinarianAccessEvents   FarmVeterinarianAccessEvent[] @relation("FarmVeterinarianAccessEventActor")
+  authoredVeterinaryNotes        VeterinaryNote[]            @relation("VeterinaryNoteAuthor")
+  createdHealthRiskRecommendations HealthRiskRecommendation[] @relation("HealthRiskRecommendationCreator")
+  acknowledgedHealthRiskRecommendations HealthRiskRecommendation[] @relation("HealthRiskRecommendationAcknowledger")
+  recordedLivestockHealthRecords LivestockHealthRecord[]     @relation("LivestockHealthRecordRecorder")
+  administeredVaccinationRecords VaccinationRecord[]         @relation("VaccinationRecordAdminister")
+  administeredTreatmentRecords   TreatmentRecord[]            @relation("TreatmentRecordAdminister")
+  observedDiseaseObservations    DiseaseObservation[]        @relation("DiseaseObservationObserver")
+  treatedDiseaseObservations     DiseaseObservation[]        @relation("DiseaseObservationVeterinarian")
+}
+
+model UserRole {
+  userId     String         @db.Uuid
+  role       FarmVisionRole
+  assignedAt DateTime       @default(now()) @db.Timestamptz(6)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@index([role])
+}
+
+model SupplierProfile {
+  id           String                @id @default(uuid()) @db.Uuid
+  userId       String                @unique @db.Uuid
+  businessName String                @db.VarChar(160)
+  description  String?               @db.VarChar(2000)
+  contactEmail String?               @db.VarChar(320)
+  status       SupplierProfileStatus @default(ACTIVE)
+  createdAt    DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime              @updatedAt @db.Timestamptz(6)
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products     MarketplaceProduct[]
+
+  @@index([status, updatedAt])
+}
+
+model MarketplaceProduct {
+  id                String                    @id @default(uuid()) @db.Uuid
+  supplierProfileId String                    @db.Uuid
+  name              String                    @db.VarChar(160)
+  category          MarketplaceProductCategory
+  description       String                    @db.VarChar(4000)
+  unitLabel         String                    @db.VarChar(80)
+  priceMinor        Int
+  currency          String                    @db.Char(3)
+  status            MarketplaceProductStatus  @default(DRAFT)
+  createdAt         DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                  @updatedAt @db.Timestamptz(6)
+  supplierProfile   SupplierProfile           @relation(fields: [supplierProfileId], references: [id], onDelete: Cascade)
+
+  @@index([status, category, updatedAt])
+  @@index([supplierProfileId, status, updatedAt])
+}
+
+model Farm {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  ownerId               String                 @db.Uuid
+  name                  String                 @db.VarChar(160)
+  locationLabel         String?                @db.VarChar(200)
+  createdAt             DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @db.Timestamptz(6)
+  owner                 User                   @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  devices               Device[]
+  advisorAccesses       FarmAdvisorAccess[]
+  advisoryNotes         AdvisoryNote[]
+  recommendationReviews RecommendationReview[]
+  farmVeterinarianAccesses FarmVeterinarianAccess[]
+  veterinaryNotes       VeterinaryNote[]
+  livestockHealthRecords LivestockHealthRecord[]
+  vaccinationRecords    VaccinationRecord[]
+  treatmentRecords      TreatmentRecord[]
+  diseaseObservations   DiseaseObservation[]
+  healthRiskRecommendations HealthRiskRecommendation[]
+
+  @@index([ownerId, createdAt])
+}
+
+model Device {
+  id             String          @id @default(uuid()) @db.Uuid
+  farmId         String          @db.Uuid
+  publicId       String          @unique @db.VarChar(64)
+  name           String          @db.VarChar(120)
+  credentialHash String          @unique @db.Char(64)
+  source         DeviceSource
+  isEnabled      Boolean         @default(true)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  lastSeenAt     DateTime?       @db.Timestamptz(6)
+  farm           Farm            @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  readings       SensorReading[]
+  latestState    DeviceState?
+  alerts         Alert[]
+
+  @@index([farmId, createdAt])
+}
+
+model SensorReading {
+  id                String       @id @default(uuid()) @db.Uuid
+  deviceId          String       @db.Uuid
+  messageId         String       @db.VarChar(128)
+  observedAt        DateTime     @db.Timestamptz(6)
+  receivedAt        DateTime     @default(now()) @db.Timestamptz(6)
+  source            DeviceSource
+  temperatureC      Float?
+  humidityPercent   Float?
+  feedLevelPercent  Float?
+  waterLevelPercent Float?
+  feedWeightGrams   Float?
+  device            Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, messageId])
+  @@index([deviceId, observedAt])
+}
+
+model DeviceState {
+  deviceId          String       @id @db.Uuid
+  observedAt        DateTime     @db.Timestamptz(6)
+  source            DeviceSource
+  temperatureC      Float?
+  humidityPercent   Float?
+  feedLevelPercent  Float?
+  waterLevelPercent Float?
+  feedWeightGrams   Float?
+  updatedAt         DateTime     @updatedAt @db.Timestamptz(6)
+  device            Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}
+
+model Alert {
+  id               String          @id @default(uuid()) @db.Uuid
+  deviceId         String          @db.Uuid
+  type             AlertType
+  severity         AlertSeverity
+  status           AlertStatus     @default(OPEN)
+  title            String          @db.VarChar(120)
+  reason           String          @db.VarChar(500)
+  suggestedAction  String          @db.VarChar(500)
+  observedValue    Float
+  thresholdValue   Float
+  unit             String          @db.VarChar(24)
+  firstTriggeredAt DateTime        @db.Timestamptz(6)
+  lastTriggeredAt  DateTime        @db.Timestamptz(6)
+  acknowledgedAt   DateTime?       @db.Timestamptz(6)
+  acknowledgedById String?         @db.Uuid
+  resolvedAt       DateTime?       @db.Timestamptz(6)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(6)
+  device           Device          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  acknowledgedBy   User?           @relation("AlertAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  events           AlertEvent[]
+  recommendation   Recommendation?
+
+  @@unique([deviceId, type])
+  @@index([status, lastTriggeredAt])
+  @@index([deviceId, status])
+}
+
+model AlertEvent {
+  id             String         @id @default(uuid()) @db.Uuid
+  alertId        String         @db.Uuid
+  eventType      AlertEventType
+  severity       AlertSeverity
+  message        String         @db.VarChar(500)
+  observedValue  Float?
+  thresholdValue Float?
+  unit           String?        @db.VarChar(24)
+  actorId        String?        @db.Uuid
+  createdAt      DateTime       @default(now()) @db.Timestamptz(6)
+  alert          Alert          @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  actor          User?          @relation("AlertEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([alertId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model FarmAdvisorAccess {
+  id           String                   @id @default(uuid()) @db.Uuid
+  farmId       String                   @db.Uuid
+  agronomistId String                   @db.Uuid
+  status       FarmAdvisorAccessStatus  @default(PENDING)
+  requestedAt  DateTime                 @default(now()) @db.Timestamptz(6)
+  decidedAt    DateTime?                @db.Timestamptz(6)
+  revokedAt    DateTime?                @db.Timestamptz(6)
+  updatedAt    DateTime                 @updatedAt @db.Timestamptz(6)
+  farm         Farm                     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  agronomist   User                     @relation("FarmAdvisorAccessAgronomist", fields: [agronomistId], references: [id], onDelete: Cascade)
+  events       FarmAdvisorAccessEvent[]
+
+  @@unique([farmId, agronomistId])
+  @@index([farmId, status, updatedAt])
+  @@index([agronomistId, status, updatedAt])
+}
+
+model FarmAdvisorAccessEvent {
+  id        String                     @id @default(uuid()) @db.Uuid
+  accessId  String                     @db.Uuid
+  eventType FarmAdvisorAccessEventType
+  actorId   String?                    @db.Uuid
+  message   String?                    @db.VarChar(500)
+  createdAt DateTime                   @default(now()) @db.Timestamptz(6)
+  access    FarmAdvisorAccess          @relation(fields: [accessId], references: [id], onDelete: Cascade)
+  actor     User?                      @relation("FarmAdvisorAccessEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([accessId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model AdvisoryNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  farmId    String   @db.Uuid
+  authorId  String   @db.Uuid
+  title     String   @db.VarChar(160)
+  body      String   @db.VarChar(5000)
+  evidence  Json     @db.JsonB
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  author    User     @relation("AdvisoryNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([farmId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model RecommendationReview {
+  id                 String                      @id @default(uuid()) @db.Uuid
+  recommendationId   String                      @db.Uuid
+  farmId             String                      @db.Uuid
+  farmerId           String                      @db.Uuid
+  agronomistId       String                      @db.Uuid
+  status             RecommendationReviewStatus  @default(PENDING)
+  activeKey          String?                     @unique @db.VarChar(80)
+  submissionNote     String?                     @db.VarChar(1000)
+  reviewerNote       String?                     @db.VarChar(1000)
+  farmerDecisionNote String?                     @db.VarChar(1000)
+  createdAt          DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime                    @updatedAt @db.Timestamptz(6)
+  decidedAt          DateTime?                   @db.Timestamptz(6)
+  recommendation     Recommendation              @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  farm               Farm                        @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farmer             User                        @relation("RecommendationReviewFarmer", fields: [farmerId], references: [id], onDelete: Restrict)
+  agronomist         User                        @relation("RecommendationReviewAgronomist", fields: [agronomistId], references: [id], onDelete: Restrict)
+  events             RecommendationReviewEvent[]
+
+  @@index([recommendationId, createdAt])
+  @@index([farmId, status, createdAt])
+  @@index([agronomistId, status, createdAt])
+}
+
+model RecommendationReviewEvent {
+  id        String                        @id @default(uuid()) @db.Uuid
+  reviewId  String                        @db.Uuid
+  eventType RecommendationReviewEventType
+  actorId   String?                       @db.Uuid
+  message   String?                       @db.VarChar(1000)
+  createdAt DateTime                      @default(now()) @db.Timestamptz(6)
+  review    RecommendationReview          @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  actor     User?                         @relation("RecommendationReviewEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([reviewId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model Recommendation {
+  id               String                 @id @default(uuid()) @db.Uuid
+  alertId          String                 @unique @db.Uuid
+  type             RecommendationType
+  severity         AlertSeverity
+  status           RecommendationStatus   @default(OPEN)
+  title            String                 @db.VarChar(120)
+  reason           String                 @db.VarChar(500)
+  suggestedAction  String                 @db.VarChar(500)
+  observedValue    Float
+  thresholdValue   Float
+  unit             String                 @db.VarChar(24)
+  observedAt       DateTime               @db.Timestamptz(6)
+  deviceSource     DeviceSource
+  ruleVersion      String                 @db.VarChar(32)
+  createdAt        DateTime               @default(now()) @db.Timestamptz(6)
+  lastGeneratedAt  DateTime               @db.Timestamptz(6)
+  acknowledgedAt   DateTime?              @db.Timestamptz(6)
+  acknowledgedById String?                @db.Uuid
+  resolvedAt       DateTime?              @db.Timestamptz(6)
+  updatedAt        DateTime               @updatedAt @db.Timestamptz(6)
+  alert            Alert                  @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  acknowledgedBy   User?                  @relation("RecommendationAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  reviews          RecommendationReview[]
+
+  @@index([status, lastGeneratedAt])
+  @@index([type, status])
+  @@index([acknowledgedById, acknowledgedAt])
+}
+
+enum VeterinaryProviderStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum FarmVeterinarianAccessStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  REVOKED
+}
+
+enum FarmVeterinarianAccessEventType {
+  REQUESTED
+  APPROVED
+  DECLINED
+  REVOKED
+}
+
+enum LivestockHealthStatus {
+  HEALTHY
+  WATCH
+  UNDER_TREATMENT
+  RECOVERING
+}
+
+enum VaccinationStatus {
+  SCHEDULED
+  ADMINISTERED
+  OVERDUE
+}
+
+enum DiseaseObservationStatus {
+  OPEN
+  UNDER_INVESTIGATION
+  CONFIRMED
+  RESOLVED
+}
+
+enum HealthRiskRecommendationStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+model VeterinaryProvider {
+  id             String                   @id @default(uuid()) @db.Uuid
+  userId         String                   @unique @db.Uuid
+  clinicName     String                   @db.VarChar(160)
+  licenseNumber  String?                  @db.VarChar(80)
+  contactEmail   String?                  @db.VarChar(320)
+  status         VeterinaryProviderStatus @default(ACTIVE)
+  createdAt      DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                 @updatedAt @db.Timestamptz(6)
+  user           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, updatedAt])
+}
+
+model FarmVeterinarianAccess {
+  id              String                      @id @default(uuid()) @db.Uuid
+  farmId          String                      @db.Uuid
+  veterinarianId  String                      @db.Uuid
+  status          FarmVeterinarianAccessStatus @default(PENDING)
+  requestedAt     DateTime                   @default(now()) @db.Timestamptz(6)
+  decidedAt       DateTime?                  @db.Timestamptz(6)
+  revokedAt       DateTime?                  @db.Timestamptz(6)
+  updatedAt       DateTime                   @updatedAt @db.Timestamptz(6)
+  farm            Farm                        @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  veterinarian    User                        @relation("FarmVeterinarianAccessVeterinarian", fields: [veterinarianId], references: [id], onDelete: Cascade)
+  events          FarmVeterinarianAccessEvent[]
+
+  @@unique([farmId, veterinarianId])
+  @@index([farmId, status, updatedAt])
+  @@index([veterinarianId, status, updatedAt])
+}
+
+model FarmVeterinarianAccessEvent {
+  id        String                         @id @default(uuid()) @db.Uuid
+  accessId  String                         @db.Uuid
+  eventType FarmVeterinarianAccessEventType
+  actorId   String?                        @db.Uuid
+  message   String?                        @db.VarChar(500)
+  createdAt DateTime                         @default(now()) @db.Timestamptz(6)
+  access    FarmVeterinarianAccess         @relation(fields: [accessId], references: [id], onDelete: Cascade)
+  actor     User?                          @relation("FarmVeterinarianAccessEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([accessId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model DiseaseObservation {
+  id                     String                       @id @default(uuid()) @db.Uuid
+  farmId                 String                       @db.Uuid
+  animalId               String                       @db.VarChar(64)
+  suspectedDisease       String                       @db.VarChar(160)
+  symptoms               String                       @db.VarChar(2000)
+  severity               AlertSeverity
+  status                 DiseaseObservationStatus   @default(OPEN)
+  observedAt             DateTime                     @default(now()) @db.Timestamptz(6)
+  observedById           String                       @db.Uuid
+  reportedToVeterinarianId String?                   @db.Uuid
+  veterinarianAssessment String?                    @db.VarChar(2000)
+  resolvedAt             DateTime?                   @db.Timestamptz(6)
+  createdAt              DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                     @updatedAt @db.Timestamptz(6)
+  farm                   Farm                         @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  observedBy             User                         @relation("DiseaseObservationObserver", fields: [observedById], references: [id], onDelete: Restrict)
+  veterinarian           User?                        @relation("DiseaseObservationVeterinarian", fields: [reportedToVeterinarianId], references: [id], onDelete: SetNull)
+
+  @@index([farmId, status, observedAt])
+  @@index([farmId, animalId, observedAt])
+}
+
+model VeterinaryNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  farmId    String   @db.Uuid
+  authorId  String   @db.Uuid
+  title     String   @db.VarChar(160)
+  body      String   @db.VarChar(5000)
+  evidence  Json     @db.JsonB
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  author    User     @relation("VeterinaryNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([farmId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model HealthRiskRecommendation {
+  id                String                    @id @default(uuid()) @db.Uuid
+  farmId            String                    @db.Uuid
+  animalId          String?                   @db.VarChar(64)
+  type              String                    @db.VarChar(64)
+  severity          AlertSeverity
+  status            HealthRiskRecommendationStatus @default(OPEN)
+  title             String                    @db.VarChar(120)
+  reason            String                    @db.VarChar(500)
+  suggestedAction   String                    @db.VarChar(500)
+  createdById       String                    @db.Uuid
+  acknowledgedById  String?                   @db.Uuid
+  resolvedAt        DateTime?                 @db.Timestamptz(6)
+  createdAt         DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                  @updatedAt @db.Timestamptz(6)
+  farm                Farm                      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdBy           User                      @relation("HealthRiskRecommendationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  acknowledgedBy      User?                     @relation("HealthRiskRecommendationAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+
+  @@index([farmId, status, createdAt])
+  @@index([farmId, type, status])
+}
+
+model LivestockHealthRecord {
+  id          String                  @id @default(uuid()) @db.Uuid
+  farmId      String                  @db.Uuid
+  animalId    String                  @db.VarChar(64)
+  animalType  String                  @db.VarChar(40)
+  breed       String?                 @db.VarChar(80)
+  healthStatus LivestockHealthStatus   @default(HEALTHY)
+  notes       String?                 @db.VarChar(2000)
+  recordedById String?                @db.Uuid
+  recordedAt   DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime               @updatedAt @db.Timestamptz(6)
+  farm         Farm                   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  recordedBy   User?                  @relation("LivestockHealthRecordRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([farmId, animalId])
+  @@index([farmId, healthStatus, recordedAt])
+}
+
+model VaccinationRecord {
+  id              String              @id @default(uuid()) @db.Uuid
+  farmId          String              @db.Uuid
+  animalId        String              @db.VarChar(64)
+  vaccineName     String              @db.VarChar(120)
+  vaccineType     String?             @db.VarChar(80)
+  status          VaccinationStatus   @default(SCHEDULED)
+  administeredAt  DateTime?           @db.Timestamptz(6)
+  administeredById String?            @db.Uuid
+  nextDueAt       DateTime?           @db.Timestamptz(6)
+  batchNumber     String?             @db.VarChar(80)
+  notes           String?             @db.VarChar(2000)
+  createdAt       DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @db.Timestamptz(6)
+  farm            Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  administeredBy  User?               @relation("VaccinationRecordAdminister", fields: [administeredById], references: [id], onDelete: SetNull)
+
+  @@index([farmId, animalId])
+  @@index([farmId, status, nextDueAt])
+}
+
+model TreatmentRecord {
+  id                String              @id @default(uuid()) @db.Uuid
+  farmId            String              @db.Uuid
+  animalId          String              @db.VarChar(64)
+  condition         String              @db.VarChar(160)
+  treatmentDescription String           @db.VarChar(2000)
+  medication          String?           @db.VarChar(160)
+  dosageNote          String?           @db.VarChar(200)
+  administeredById    String?           @db.Uuid
+  administeredAt      DateTime?         @db.Timestamptz(6)
+  followUpAt          DateTime?         @db.Timestamptz(6)
+  outcome             String?           @db.VarChar(160)
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(6)
+  farm                Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  administeredBy      User?               @relation("TreatmentRecordAdminister", fields: [administeredById], references: [id], onDelete: SetNull)
+
+  @@index([farmId, animalId])
+  @@index([farmId, createdAt])
+}

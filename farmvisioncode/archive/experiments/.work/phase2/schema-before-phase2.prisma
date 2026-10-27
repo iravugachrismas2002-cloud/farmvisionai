@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FarmVisionRole {
+  FARMER
+  COOPERATIVE
+  RESEARCHER
+  GOVERNMENT_ANALYST
+  ADMINISTRATOR
+}
+
+model User {
+  id        String          @id @default(uuid()) @db.Uuid
+  openId    String          @unique
+  name      String?
+  email     String?
+  createdAt DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime        @updatedAt @db.Timestamptz(6)
+  roles     UserRole[]
+  farms     Farm[]
+}
+
+model UserRole {
+  userId     String          @db.Uuid
+  role       FarmVisionRole
+  assignedAt DateTime        @default(now()) @db.Timestamptz(6)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@index([role])
+}
+
+model Farm {
+  id            String   @id @default(uuid()) @db.Uuid
+  ownerId       String   @db.Uuid
+  name          String   @db.VarChar(160)
+  locationLabel String?  @db.VarChar(200)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@index([ownerId, createdAt])
+}

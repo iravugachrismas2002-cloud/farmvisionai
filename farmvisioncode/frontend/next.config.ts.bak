@@ -1,0 +1,23 @@
+import type { NextConfig } from "next";
+import { fileURLToPath } from "node:url";
+
+const nextConfig: NextConfig = {
+  /* Bound Turbopack to the workspace root so the dependency/git walk does not
+     leave the workspace and touch C:\\Users\\user\\.git (host EPERM source).
+     The workspace root (not the frontend dir) is required because npm hoists
+     shared dependencies such as `next` into the root node_modules, and
+     Turbopack resolves packages from its configured root. */
+  turbopack: {
+    root: fileURLToPath(new URL("..", import.meta.url)),
+    rules: {
+      "*.css": {
+        loaders: ["@tailwindcss/turbopack"],
+        as: "*.css",
+      },
+    },
+  },
+};
+// Allow cross-origin access from network IP for development
+  allowedDevOrigins: ['localhost', '127.0.0.1', '172.24.192.1'],
+
+export default nextConfig;

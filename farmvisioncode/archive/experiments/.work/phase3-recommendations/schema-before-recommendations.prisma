@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FarmVisionRole {
+  FARMER
+  COOPERATIVE
+  RESEARCHER
+  GOVERNMENT_ANALYST
+  ADMINISTRATOR
+}
+
+enum DeviceSource {
+  HARDWARE
+  SIMULATOR
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertType {
+  FEED_LOW
+  WATER_LOW
+  HIGH_TEMPERATURE
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum AlertEventType {
+  TRIGGERED
+  ACKNOWLEDGED
+  RESOLVED
+  ESCALATED
+  SEVERITY_CHANGED
+}
+
+model User {
+  id        String          @id @default(uuid()) @db.Uuid
+  openId    String          @unique
+  name      String?
+  email     String?
+  createdAt DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime        @updatedAt @db.Timestamptz(6)
+  roles     UserRole[]
+  farms     Farm[]
+  acknowledgedAlerts Alert[] @relation("AlertAcknowledgedBy")
+  alertEvents AlertEvent[]   @relation("AlertEventActor")
+}
+
+model UserRole {
+  userId     String          @db.Uuid
+  role       FarmVisionRole
+  assignedAt DateTime        @default(now()) @db.Timestamptz(6)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@index([role])
+}
+
+model Farm {
+  id            String   @id @default(uuid()) @db.Uuid
+  ownerId       String   @db.Uuid
+  name          String   @db.VarChar(160)
+  locationLabel String?  @db.VarChar(200)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  devices       Device[]
+
+  @@index([ownerId, createdAt])
+}
+
+model Device {
+  id             String       @id @default(uuid()) @db.Uuid
+  farmId         String       @db.Uuid
+  publicId       String       @unique @db.VarChar(64)
+  name           String       @db.VarChar(120)
+  credentialHash String       @unique @db.Char(64)
+  source         DeviceSource
+  isEnabled      Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  lastSeenAt     DateTime?    @db.Timestamptz(6)
+  farm           Farm         @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  readings       SensorReading[]
+  latestState    DeviceState?
+  alerts         Alert[]
+
+  @@index([farmId, createdAt])
+}
+
+model SensorReading {
+  id                String       @id @default(uuid()) @db.Uuid
+  deviceId          String       @db.Uuid
+  messageId         String       @db.VarChar(128)
+  observedAt        DateTime     @db.Timestamptz(6)
+  receivedAt        DateTime     @default(now()) @db.Timestamptz(6)
+  source            DeviceSource
+  temperatureC      Float?
+  humidityPercent   Float?
+  feedLevelPercent  Float?
+  waterLevelPercent Float?
+  feedWeightGrams   Float?
+  device            Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, messageId])
+  @@index([deviceId, observedAt])
+}
+
+model DeviceState {
+  deviceId          String       @id @db.Uuid
+  observedAt        DateTime     @db.Timestamptz(6)
+  source            DeviceSource
+  temperatureC      Float?
+  humidityPercent   Float?
+  feedLevelPercent  Float?
+  waterLevelPercent Float?
+  feedWeightGrams   Float?
+  updatedAt         DateTime     @updatedAt @db.Timestamptz(6)
+  device            Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}
+
+model Alert {
+  id                String         @id @default(uuid()) @db.Uuid
+  deviceId          String         @db.Uuid
+  type              AlertType
+  severity          AlertSeverity
+  status            AlertStatus    @default(OPEN)
+  title             String         @db.VarChar(120)
+  reason            String         @db.VarChar(500)
+  suggestedAction   String         @db.VarChar(500)
+  observedValue     Float
+  thresholdValue    Float
+  unit              String         @db.VarChar(24)
+  firstTriggeredAt  DateTime       @db.Timestamptz(6)
+  lastTriggeredAt   DateTime       @db.Timestamptz(6)
+  acknowledgedAt    DateTime?      @db.Timestamptz(6)
+  acknowledgedById  String?        @db.Uuid
+  resolvedAt        DateTime?      @db.Timestamptz(6)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(6)
+  device            Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  acknowledgedBy    User?          @relation("AlertAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  events            AlertEvent[]
+
+  @@unique([deviceId, type])
+  @@index([status, lastTriggeredAt])
+  @@index([deviceId, status])
+}
+
+model AlertEvent {
+  id              String         @id @default(uuid()) @db.Uuid
+  alertId         String         @db.Uuid
+  eventType       AlertEventType
+  severity        AlertSeverity
+  message         String         @db.VarChar(500)
+  observedValue   Float?
+  thresholdValue  Float?
+  unit            String?        @db.VarChar(24)
+  actorId         String?        @db.Uuid
+  createdAt       DateTime       @default(now()) @db.Timestamptz(6)
+  alert           Alert          @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  actor           User?          @relation("AlertEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([alertId, createdAt])
+  @@index([actorId, createdAt])
+}
